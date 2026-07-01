@@ -58,22 +58,35 @@ SYSTEM_PROMPT = """
 → 返信が遅れてしまった場合に必ずお詫びを入れる。
 遅れた理由の例：「週末にダンスイベントに出演しておりました」「現在お問い合わせが殺到しております」
 
+⑧最終回間近のレッスンへの参加案内（重要）
+→ レッスン日程情報が提供されており、残り回数が少ない（目安：残り1〜2回）場合に使用。
+ポイント：
+- 「〔曲名〕ですが残り〇回となっており」と残り回数を明示する
+- 「細かい振り付け指導はできない部分もございますが、動画撮影等でカバーいたしますので、その点ご了承いただけますと幸いです」という文言を必ず入れる
+- 次のレッスンシリーズ（新曲）からの参加を勧める案内も添える
+例文：
+「〔曲名〕ですが残り〇回となっており、細かい振り付け指導はできない部分もございますが、
+動画撮影等でカバーいたしますので、その点ご了承いただけますと幸いです。
+もし最初から振り付けをしっかりと覚えたい場合は、次の曲が始まる基礎レッスンからのご参加がおすすめです。
+次回は〔時期〕頃を予定しております。」
+
 【重要な情報】
 - スタジオ：スタジオワークル原宿 108室（上記参照）
-- 講師：TATSUYA、Joy Jなど（問い合わせの文脈から判断）
+- 講師：TATSUYA、Joy J、Rintaroなど（問い合わせの文脈から判断）
 - 返信が遅れている場合は必ずお詫びを入れる
-- 現在進行中の曲・次の曲が問い合わせ内容に含まれていれば、それに合わせた案内をする
+- 現在進行中の曲・次の曲が問い合わせ内容やレッスン日程情報に含まれていれば、それに合わせた案内をする
+- レッスン日程情報が提供された場合は、その情報を活用して具体的な日程・残り回数を返信に盛り込む
 
 返信文のみを出力してください（件名・「---」などの区切りは不要）。
 """
 
 
-def generate_reply(inquiry_text: str, sender_name: str = "") -> str:
-    user_prompt = f"""
-差出人名: {sender_name if sender_name else "（不明）"}
+def generate_reply(inquiry_text: str, sender_name: str = "", schedule_info: str = "") -> str:
+    schedule_section = f"\nレッスン日程情報:\n{schedule_info}" if schedule_info.strip() else ""
+    user_prompt = f"""差出人名: {sender_name if sender_name else "（不明）"}
 
 問い合わせ内容:
-{inquiry_text}
+{inquiry_text}{schedule_section}
 """
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -110,6 +123,8 @@ if "last_email" not in st.session_state:
 if "last_subject" not in st.session_state:
     st.session_state.last_subject = ""
 
+FIXED_SUBJECT = "【MJスター運営】お問合せありがとうございます。"
+
 with st.form("form"):
     col1, col2 = st.columns(2)
     with col1:
@@ -117,12 +132,20 @@ with st.form("form"):
     with col2:
         sender_email = st.text_input("返信先メール（任意）", placeholder="例：yamada@example.com")
 
-    subject = st.text_input("件名（任意）", placeholder="例：Re: 【MJスター運営】お問い合わせありがとうございます")
+    subject = st.text_input("件名", value=FIXED_SUBJECT)
+
     inquiry = st.text_area(
         "問い合わせ内容を貼り付け *",
-        height=220,
+        height=180,
         placeholder="受け取った問い合わせメールの本文をここに貼り付けてください...",
     )
+
+    schedule_info = st.text_area(
+        "直近のレッスン日程（任意）— 残り回数が少ない場合は自動で注意文を追加します",
+        height=120,
+        placeholder="例：\nビリージーン 7/5(日)13:00 / 7/19(日)13:30（残り2回・最終）\nスリラー 8/9(土)13:00〜（新シリーズ開始）",
+    )
+
     submitted = st.form_submit_button("✨ 返信を生成する", use_container_width=True, type="primary")
 
 if submitted:
@@ -131,7 +154,7 @@ if submitted:
         st.session_state.generated_reply = ""
     else:
         with st.spinner("返信を生成中..."):
-            reply = generate_reply(inquiry, sender_name)
+            reply = generate_reply(inquiry, sender_name, schedule_info)
         st.session_state.generated_reply = reply
         st.session_state.last_email = sender_email
         st.session_state.last_subject = subject
