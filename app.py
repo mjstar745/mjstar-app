@@ -8,7 +8,10 @@ from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 # ローカル: .env / Streamlit Cloud: st.secrets
-api_key = st.secrets.get("OPENAI_API_KEY", None) or os.getenv("OPENAI_API_KEY")
+try:
+    api_key = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
 SYSTEM_PROMPT = """
